@@ -1,7 +1,7 @@
 {
   "name": "@zcure/sdk",
   "version": "0.1.0",
-  "description": "Official Solana SDK for Zcure Privacy Protocol",
+  "description": "Solana SDK helpers for Light Protocol compressed SOL transactions",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -18,29 +18,28 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "lint": "eslint src/",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
     "clean": "rm -rf dist .turbo node_modules"
   },
   "keywords": [
     "solana",
-    "privacy",
     "zk",
-    "shielded",
+    "compressed-sol",
     "sdk",
     "zcure"
   ],
   "author": "Zcure",
   "license": "MIT",
   "dependencies": {
-    "@lightprotocol/stateless.js": "^0.17.1",
-    "@lightprotocol/compressed-token": "^0.17.1",
-    "@solana/web3.js": "^1.95.4",
-    "@solana/spl-token": "^0.4.9",
+    "@lightprotocol/stateless.js": "^0.23.3",
+    "@solana/web3.js": "^1.98.4",
     "bs58": "^6.0.0"
   },
   "devDependencies": {
-    "tsup": "^8.0.1",
-    "typescript": "^5.6.3"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "publishConfig": {
     "access": "public"

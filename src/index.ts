@@ -3,9 +3,10 @@ import {
   createRpc, 
   LightSystemProgram, 
   bn, 
-  defaultTestStateTreeAccounts,
+  selectStateTreeInfo,
   selectMinCompressedSolAccountsForTransfer
 } from '@lightprotocol/stateless.js';
+import type { CompressedAccountWithMerkleContext, TreeInfo } from '@lightprotocol/stateless.js';
 import { ComputeBudgetProgram, Connection, Transaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { StealthManager } from './stealth';
 import type { 
@@ -30,10 +31,12 @@ export class ZcureClient {
   
   private rpc: Rpc;
   private network: Network;
+  private outputStateTreeInfo?: TreeInfo;
   
   constructor(config: ZcureConfig) {
     this.connection = new Connection(config.rpcUrl);
     this.network = config.network || 'mainnet-beta';
+    this.outputStateTreeInfo = config.outputStateTreeInfo;
     this.stealth = new StealthManager();
     
     const lightRpcUrl = config.lightRpcUrl || config.rpcUrl;
@@ -46,6 +49,13 @@ export class ZcureClient {
    */
   static init(config: ZcureConfig): ZcureClient {
     return new ZcureClient(config);
+  }
+
+  /**
+   * Return the configured Light Protocol output state tree, if one was provided.
+   */
+  getOutputStateTreeInfo(): TreeInfo | undefined {
+    return this.outputStateTreeInfo;
   }
 
   /**
@@ -62,7 +72,7 @@ export class ZcureClient {
         return 0;
       }
 
-      const totalLamports = compressedAccounts.items.reduce((sum: number, acc: any) => {
+      const totalLamports = compressedAccounts.items.reduce((sum: number, acc: CompressedAccountWithMerkleContext) => {
         return sum + (acc.lamports?.toNumber() || 0);
       }, 0);
 
@@ -83,12 +93,14 @@ export class ZcureClient {
 
     const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
 
+    const outputStateTreeInfo = await this.resolveOutputStateTreeInfo();
+
     // Create compress (shield) instruction
     const compressIx = await LightSystemProgram.compress({
       payer: wallet,
       toAddress: wallet,
       lamports,
-      outputStateTree: defaultTestStateTreeAccounts().merkleTree,
+      outputStateTreeInfo,
     });
 
     const { blockhash } = await this.connection.getLatestBlockhash();
@@ -135,7 +147,7 @@ export class ZcureClient {
 
     // Get validity proof
     const proof = await this.rpc.getValidityProof(
-      selectedAccounts.map((acc: any) => bn(acc.hash))
+      selectedAccounts.map((acc: CompressedAccountWithMerkleContext) => bn(acc.hash))
     );
 
     // Create decompress (unshield) instruction
@@ -192,7 +204,7 @@ export class ZcureClient {
 
     // Get proof
     const proof = await this.rpc.getValidityProof(
-      selectedAccounts.map((acc: any) => bn(acc.hash))
+      selectedAccounts.map((acc: CompressedAccountWithMerkleContext) => bn(acc.hash))
     );
 
     // Create transfer instruction
@@ -201,7 +213,6 @@ export class ZcureClient {
       toAddress: recipient,
       lamports,
       inputCompressedAccounts: selectedAccounts,
-      outputStateTrees: [defaultTestStateTreeAccounts().merkleTree],
       recentValidityProof: proof.compressedProof,
       recentInputStateRootIndices: proof.rootIndices,
     });
@@ -218,5 +229,17 @@ export class ZcureClient {
     transaction.add(transferIx);
 
     return transaction;
+  }
+
+  private async resolveOutputStateTreeInfo(): Promise<TreeInfo> {
+    if (this.outputStateTreeInfo) {
+      return this.outputStateTreeInfo;
+    }
+
+    const stateTreeInfos = await this.rpc.getStateTreeInfos();
+    const outputStateTreeInfo = selectStateTreeInfo(stateTreeInfos);
+    this.outputStateTreeInfo = outputStateTreeInfo;
+
+    return outputStateTreeInfo;
   }
 }

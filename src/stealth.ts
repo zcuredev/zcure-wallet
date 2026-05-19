@@ -1,21 +1,25 @@
-import { Keypair, PublicKey, Connection, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Keypair, PublicKey, Connection, Transaction, SystemProgram } from '@solana/web3.js';
 import bs58 from 'bs58';
 import type { StealthAddressResult } from './types';
 
 /**
- * Manager for Zcure Stealth Addresses
+ * Experimental one-time deposit address helper.
+ *
+ * This is not a complete stealth-address protocol. It generates isolated Solana
+ * keypairs and sweep transactions for callers that want per-receive addresses.
  */
 export class StealthManager {
   /**
-   * Generate a new stealth address
+   * Generate a new one-time deposit address.
    * 
-   * @returns A new stealth address with view and spend keys
+   * @returns A new deposit address with compatibility view and spend keys
    */
   generateAddress(): StealthAddressResult {
-    // Generate ephemeral keypair for this stealth address
+    // Generate an isolated keypair for this one-time deposit address.
     const spendKeypair = Keypair.generate();
     
-    // View key is derived from first 32 bytes of secret key
+    // Compatibility metadata only; this is not a scanning key for a full
+    // stealth-address protocol.
     const viewKeySeed = spendKeypair.secretKey.slice(0, 32);
     const viewKeypair = Keypair.fromSeed(viewKeySeed);
 
@@ -27,10 +31,10 @@ export class StealthManager {
   }
 
   /**
-   * Create a transaction to sweep funds from a stealth address
+   * Create a transaction to sweep funds from a one-time deposit address
    * 
    * @param connection Solana connection
-   * @param spendKey The spend key of the stealth address
+   * @param spendKey The spend key of the one-time deposit address
    * @param destination The destination address to sweep funds to
    * @returns Transaction ready to be signed and sent
    */
@@ -39,34 +43,40 @@ export class StealthManager {
     spendKey: string,
     destination: PublicKey
   ): Promise<Transaction> {
-    const spendKeypair = Keypair.fromSecretKey(bs58.decode(spendKey));
+    const spendKeypair = this.getKeypairFromSpendKey(spendKey);
     
     const balance = await connection.getBalance(spendKeypair.publicKey);
     if (balance === 0) {
       throw new Error('No funds to sweep');
     }
-    
-    // Reserve for transaction fee (approx 0.000005 SOL)
-    const fee = 5000; 
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    const feeProbe = this.createUnsignedSweepTransaction(
+      spendKeypair.publicKey,
+      destination,
+      balance,
+      blockhash
+    );
+    const feeResult = await connection.getFeeForMessage(feeProbe.compileMessage());
+    const fee = feeResult.value;
+
+    if (fee === null) {
+      throw new Error('Unable to estimate sweep transaction fee');
+    }
+
     const transferAmount = balance - fee;
     
     if (transferAmount <= 0) {
       throw new Error('Balance too low to cover transaction fee');
     }
     
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: spendKeypair.publicKey,
-        toPubkey: destination,
-        lamports: transferAmount,
-      })
+    const transaction = this.createUnsignedSweepTransaction(
+      spendKeypair.publicKey,
+      destination,
+      transferAmount,
+      blockhash
     );
-    
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = spendKeypair.publicKey;
-    
-    // Sign with spend key immediately as we have it
+
     transaction.sign(spendKeypair);
     
     return transaction;
@@ -76,6 +86,30 @@ export class StealthManager {
    * Recover a keypair from a spend key string
    */
   getKeypairFromSpendKey(spendKey: string): Keypair {
-    return Keypair.fromSecretKey(bs58.decode(spendKey));
+    try {
+      return Keypair.fromSecretKey(bs58.decode(spendKey));
+    } catch {
+      throw new Error('Invalid spend key');
+    }
+  }
+
+  private createUnsignedSweepTransaction(
+    source: PublicKey,
+    destination: PublicKey,
+    lamports: number,
+    blockhash: string
+  ): Transaction {
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: source,
+        toPubkey: destination,
+        lamports,
+      })
+    );
+
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = source;
+
+    return transaction;
   }
 }
