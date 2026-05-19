@@ -23,6 +23,12 @@ jobs:
       - name: Build SDK
         run: npm run build
 
+      - name: Test SDK
+        run: npm test
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
       - name: Publish to npm
         run: npm publish
         env:
