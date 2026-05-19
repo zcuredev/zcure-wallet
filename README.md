@@ -14,8 +14,8 @@ This SDK is not a complete privacy protocol by itself.
 - Compressed SOL support is provided by Light Protocol.
 - One-time deposit addresses are ordinary Solana keypairs generated for isolated
   receives.
-- The SDK does not currently implement stealth-output announcements, recipient
-  scanning, encrypted memos, or a Monero/Zcash-style stealth-address protocol.
+- The SDK does not currently implement encrypted announcements, recipient
+  scanning, encrypted memos, or a Monero/Zcash-style privacy protocol.
 - Applications must still review transaction metadata and Light Protocol
   behavior for their own threat model.
 
@@ -112,16 +112,15 @@ Returns the wallet's compressed SOL balance in SOL.
 const balance = await client.getPrivateBalance(wallet);
 ```
 
-### `StealthManager`
+### `DepositAddressManager`
 
-`StealthManager` is retained for API compatibility, but the current
-implementation should be treated as an experimental one-time deposit address
-helper.
+`DepositAddressManager` generates isolated Solana keypairs for per-receive
+deposit addresses and creates sweep transactions for those addresses.
 
 ```typescript
-const deposit = client.stealth.generateAddress();
+const deposit = client.depositAddresses.generateAddress();
 
-const sweepTx = await client.stealth.createSweepTransaction(
+const sweepTx = await client.depositAddresses.createSweepTransaction(
   client.connection,
   deposit.spendKey,
   wallet

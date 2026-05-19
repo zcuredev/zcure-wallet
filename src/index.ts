@@ -8,7 +8,7 @@ import {
 } from '@lightprotocol/stateless.js';
 import type { CompressedAccountWithMerkleContext, TreeInfo } from '@lightprotocol/stateless.js';
 import { ComputeBudgetProgram, Connection, Transaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { StealthManager } from './stealth';
+import { DepositAddressManager } from './deposit';
 import type { 
   ZcureConfig, 
   ShieldOptions, 
@@ -18,7 +18,7 @@ import type {
 } from './types';
 
 export * from './types';
-export * from './stealth';
+export * from './deposit';
 
 /**
  * Zcure Client SDK
@@ -27,7 +27,7 @@ export * from './stealth';
  */
 export class ZcureClient {
   public readonly connection: Connection;
-  public readonly stealth: StealthManager;
+  public readonly depositAddresses: DepositAddressManager;
   
   private rpc: Rpc;
   private network: Network;
@@ -37,7 +37,7 @@ export class ZcureClient {
     this.connection = new Connection(config.rpcUrl);
     this.network = config.network || 'mainnet-beta';
     this.outputStateTreeInfo = config.outputStateTreeInfo;
-    this.stealth = new StealthManager();
+    this.depositAddresses = new DepositAddressManager();
     
     const lightRpcUrl = config.lightRpcUrl || config.rpcUrl;
     this.rpc = createRpc(lightRpcUrl, lightRpcUrl);

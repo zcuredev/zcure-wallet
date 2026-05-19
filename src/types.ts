@@ -75,16 +75,11 @@ export interface PrivateTransferOptions {
   recipient: PublicKey;
 }
 
-export interface StealthAddressResult {
+export interface DepositAddressResult {
   /**
    * The public one-time deposit address that can receive funds
    */
   address: string;
-  
-  /**
-   * Compatibility metadata; not a full transaction-scanning key
-   */
-  viewKey: string;
   
   /**
    * The key used to spend funds (KEEP SECRET)

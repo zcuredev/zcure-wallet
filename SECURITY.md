@@ -46,7 +46,7 @@ corresponding one-time deposit address. Applications should store spend keys in
 encrypted local storage, hardware-backed storage, or another user-controlled
 secret store.
 
-The current `StealthManager` API is an experimental one-time deposit address
-helper. It should not be described as a full stealth-address protocol until the
+The current `DepositAddressManager` API is an experimental one-time deposit
+address helper. It should not be described as a full privacy protocol until the
 project implements audited recipient scanning, encrypted announcements, and a
 standard key-derivation design.
